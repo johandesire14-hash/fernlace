@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { FileDown, LogOut, Package, UserRound } from "lucide-react";
+import { Check, FileDown, LogOut, Package, RefreshCw, Truck, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -11,6 +11,7 @@ type ClientState =
   | { status: "error"; message: string };
 type CustomerOrder = Pick<Tables<"orders">, "id" | "created_at" | "total" | "status" | "items" | "customer_name" | "phone" | "address" | "city">;
 type OrderItem = { name: string; price: number; quantity: number; size: string | null; color: string | null };
+const trackingSteps = ["En attente", "Confirmée", "Expédiée", "Livrée"] as const;
 
 export const Route = createFileRoute("/espace-client")({
   head: () => ({
@@ -39,6 +40,8 @@ function ClientAreaPage() {
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersError, setOrdersError] = useState(false);
   const [downloadingOrderId, setDownloadingOrderId] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [refreshingOrderId, setRefreshingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -57,6 +60,7 @@ function ClientAreaPage() {
         status: "authenticated",
         email: data.user.email ?? "Client Fernlace",
       });
+      setCustomerId(data.user.id);
 
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
@@ -65,9 +69,30 @@ function ClientAreaPage() {
         .order("created_at", { ascending: false });
       setOrdersError(Boolean(orderError));
       if (!orderError) setOrders((orderData ?? []) as CustomerOrder[]);
+
+      const orderChannel = supabase
+        .channel(`customer-orders-${data.user.id}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "orders", filter: `user_id=eq.${data.user.id}` },
+          (payload) => {
+            const updatedOrder = payload.new as CustomerOrder;
+            setOrders((current) => current.map((order) => (
+              order.id === updatedOrder.id
+                ? { ...order, status: updatedOrder.status, total: updatedOrder.total, items: updatedOrder.items }
+                : order
+            )));
+          },
+        )
+        .subscribe();
+
+      return orderChannel;
     }
 
-    void loadClient();
+    let orderChannel: ReturnType<typeof supabase.channel> | null = null;
+    void loadClient().then((channel) => {
+      orderChannel = channel ?? null;
+    });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
@@ -80,6 +105,7 @@ function ClientAreaPage() {
     return () => {
       isMounted = false;
       authListener.subscription.unsubscribe();
+      if (orderChannel) void supabase.removeChannel(orderChannel);
     };
   }, [navigate]);
 
@@ -87,6 +113,21 @@ function ClientAreaPage() {
     setIsSigningOut(true);
     await supabase.auth.signOut();
     await navigate({ to: "/connexion" });
+  }
+
+  async function refreshOrder(orderId: string) {
+    if (!customerId) return;
+    setRefreshingOrderId(orderId);
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id, created_at, total, status, items, customer_name, phone, address, city")
+      .eq("id", orderId)
+      .eq("user_id", customerId)
+      .maybeSingle();
+    if (!error && data) {
+      setOrders((current) => current.map((order) => (order.id === orderId ? data as CustomerOrder : order)));
+    }
+    setRefreshingOrderId(null);
   }
 
   async function downloadInvoice(order: CustomerOrder) {
@@ -283,6 +324,43 @@ function ClientAreaPage() {
                       <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{order.status}</span>
                       <strong className="font-display text-xl">{formatPrice(Number(order.total))}</strong>
                     </div>
+                  </div>
+                  <div className="mt-5 rounded-2xl border border-border bg-card p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Truck className="size-4 text-primary" />
+                        <p className="text-sm font-semibold">Suivi de livraison en direct</p>
+                      </div>
+                      <button
+                        aria-label="Actualiser le suivi de livraison"
+                        className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={refreshingOrderId === order.id}
+                        onClick={() => void refreshOrder(order.id)}
+                        type="button"
+                      >
+                        <RefreshCw className={`size-4 ${refreshingOrderId === order.id ? "animate-spin" : ""}`} />
+                      </button>
+                    </div>
+                    {order.status === "Annulée" ? (
+                      <p className="mt-4 rounded-xl bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive">Cette commande a été annulée.</p>
+                    ) : (
+                      <div className="mt-5 grid grid-cols-4 gap-2">
+                        {trackingSteps.map((step, index) => {
+                          const currentIndex = trackingSteps.indexOf(order.status as (typeof trackingSteps)[number]);
+                          const isComplete = currentIndex >= index;
+                          return (
+                            <div className="relative text-center" key={step}>
+                              {index < trackingSteps.length - 1 ? <span className={`absolute left-1/2 top-3 h-0.5 w-full ${currentIndex > index ? "bg-primary" : "bg-border"}`} /> : null}
+                              <span className={`relative z-10 mx-auto flex size-6 items-center justify-center rounded-full border-2 ${isComplete ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}>
+                                {isComplete ? <Check className="size-3.5" /> : <span className="size-1.5 rounded-full bg-current" />}
+                              </span>
+                              <span className={`mt-2 block text-[10px] leading-tight sm:text-xs ${isComplete ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{step}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <p className="mt-4 text-xs text-muted-foreground">Le statut se met à jour automatiquement lorsque votre commande avance.</p>
                   </div>
                   <div className="mt-4 divide-y divide-border border-t border-border">
                     {items.map((item, index) => (

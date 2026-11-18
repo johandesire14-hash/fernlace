@@ -31,3 +31,8 @@
 ## Factures PDF
 - [x] Ajouter un téléchargement PDF pour chaque commande de l’historique.
 - [x] Inclure les informations client, les articles, le statut, la date et le total dans la facture.
+
+## Suivi de livraison
+- [x] Afficher une timeline de livraison par commande.
+- [x] Mettre à jour le statut en direct via Supabase Realtime.
+- [x] Ajouter une actualisation manuelle de secours.
