@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { LogOut, Package, UserRound } from "lucide-react";
+import { FileDown, LogOut, Package, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -9,7 +9,7 @@ type ClientState =
   | { status: "loading" }
   | { status: "authenticated"; email: string }
   | { status: "error"; message: string };
-type CustomerOrder = Pick<Tables<"orders">, "id" | "created_at" | "total" | "status" | "items">;
+type CustomerOrder = Pick<Tables<"orders">, "id" | "created_at" | "total" | "status" | "items" | "customer_name" | "phone" | "address" | "city">;
 type OrderItem = { name: string; price: number; quantity: number; size: string | null; color: string | null };
 
 export const Route = createFileRoute("/espace-client")({
@@ -38,6 +38,7 @@ function ClientAreaPage() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersError, setOrdersError] = useState(false);
+  const [downloadingOrderId, setDownloadingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -59,7 +60,7 @@ function ClientAreaPage() {
 
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
-        .select("id, created_at, total, status, items")
+        .select("id, created_at, total, status, items, customer_name, phone, address, city")
         .eq("user_id", data.user.id)
         .order("created_at", { ascending: false });
       setOrdersError(Boolean(orderError));
@@ -86,6 +87,86 @@ function ClientAreaPage() {
     setIsSigningOut(true);
     await supabase.auth.signOut();
     await navigate({ to: "/connexion" });
+  }
+
+  async function downloadInvoice(order: CustomerOrder) {
+    setDownloadingOrderId(order.id);
+
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+      const margin = 20;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const items = Array.isArray(order.items) ? (order.items as unknown as OrderItem[]) : [];
+      const euro = (value: number) => formatPrice(value).replace(/\u202f/g, " ");
+      let y = 22;
+
+      doc.setTextColor(35, 35, 35);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text("fern", margin, y);
+      doc.setTextColor(92, 148, 91);
+      doc.text("lace", margin + 24, y);
+      doc.setTextColor(35, 35, 35);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Boutique de démonstration", margin, y + 7);
+
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("FACTURE", pageWidth - margin, y, { align: "right" });
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`N° ${order.id.slice(0, 8).toUpperCase()}`, pageWidth - margin, y + 7, { align: "right" });
+      doc.text(new Date(order.created_at).toLocaleDateString("fr-FR"), pageWidth - margin, y + 13, { align: "right" });
+
+      y += 32;
+      doc.setDrawColor(220, 220, 220);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 12;
+      doc.setFont("helvetica", "bold");
+      doc.text("Client", margin, y);
+      doc.setFont("helvetica", "normal");
+      y += 6;
+      doc.text(doc.splitTextToSize(order.customer_name, 75), margin, y);
+      y += 5;
+      doc.text(doc.splitTextToSize(`${order.address}, ${order.city}`, 75), margin, y);
+      y += 5;
+      doc.text(order.phone, margin, y);
+      doc.text(`Statut : ${order.status}`, pageWidth - margin, y, { align: "right" });
+
+      y += 18;
+      doc.setFillColor(245, 245, 245);
+      doc.rect(margin, y - 5, pageWidth - margin * 2, 9, "F");
+      doc.setFont("helvetica", "bold");
+      doc.text("Article", margin + 3, y);
+      doc.text("Total", pageWidth - margin - 3, y, { align: "right" });
+      y += 12;
+      doc.setFont("helvetica", "normal");
+
+      for (const item of items) {
+        const details = [item.size && `Taille ${item.size}`, item.color].filter(Boolean).join(" · ");
+        const lines = doc.splitTextToSize(`${item.quantity} × ${item.name}${details ? ` — ${details}` : ""}`, 125);
+        doc.text(lines, margin + 3, y);
+        doc.text(euro(item.price * item.quantity), pageWidth - margin - 3, y, { align: "right" });
+        y += Math.max(7, lines.length * 5) + 3;
+      }
+
+      doc.setDrawColor(220, 220, 220);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 12;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("Total", margin, y);
+      doc.text(euro(Number(order.total)), pageWidth - margin, y, { align: "right" });
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("Aucun paiement réel n’est demandé pour cette boutique de démonstration.", margin, 280);
+      doc.save(`facture-${order.id.slice(0, 8).toUpperCase()}.pdf`);
+    } finally {
+      setDownloadingOrderId(null);
+    }
   }
 
   if (clientState.status === "loading") {
@@ -213,6 +294,17 @@ function ClientAreaPage() {
                         <p className="shrink-0 font-semibold">{formatPrice(item.price * item.quantity)}</p>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-4 flex justify-end border-t border-border pt-4">
+                    <button
+                      className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={downloadingOrderId === order.id}
+                      onClick={() => void downloadInvoice(order)}
+                      type="button"
+                    >
+                      <FileDown className="size-4" />
+                      {downloadingOrderId === order.id ? "Génération…" : "Télécharger la facture PDF"}
+                    </button>
                   </div>
                 </article>
               );

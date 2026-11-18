@@ -27,3 +27,7 @@
 - [x] Relier les nouvelles commandes au compte client authentifié.
 - [x] Afficher l’historique personnel des commandes dans l’espace client.
 - [x] Prévoir les états vide et indisponible sans exposer les détails techniques.
+
+## Factures PDF
+- [x] Ajouter un téléchargement PDF pour chaque commande de l’historique.
+- [x] Inclure les informations client, les articles, le statut, la date et le total dans la facture.
