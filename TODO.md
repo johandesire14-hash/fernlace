@@ -22,3 +22,8 @@
 - [x] Ajouter une page `/espace-client/profil` protégée permettant de modifier les informations personnelles.
 - [x] Enregistrer le nom complet, le téléphone et la ville dans les métadonnées du compte Supabase.
 - [x] Afficher une confirmation de réussite ou une erreur utilisateur lors de l’enregistrement.
+
+## Historique des commandes client
+- [x] Relier les nouvelles commandes au compte client authentifié.
+- [x] Afficher l’historique personnel des commandes dans l’espace client.
+- [x] Prévoir les états vide et indisponible sans exposer les détails techniques.

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 const checkoutSchema = z.object({
@@ -67,14 +68,23 @@ export const submitOrder = createServerFn({ method: "POST" })
     });
     const stock = [...sizeQuantities.values()];
     const total = Math.round(orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100;
-    const { data: orderId, error } = await supabaseAdmin.rpc("submit_order", {
+    const authHeader = getRequest()?.headers.get("authorization");
+    let userId: string | null = null;
+    if (authHeader?.startsWith("Bearer ")) {
+      const { data: userData } = await supabaseAdmin.auth.getUser(authHeader.slice("Bearer ".length));
+      userId = userData.user?.id ?? null;
+    }
+    const rpcName = userId ? "submit_order_for_user" : "submit_order";
+    const rpcArgs = {
       p_customer_name: data.customerName,
       p_phone: data.phone,
       p_address: data.address,
       p_city: data.city,
       p_items: orderItems,
       p_stock: stock,
-    });
+      ...(userId ? { p_user_id: userId } : {}),
+    };
+    const { data: orderId, error } = await supabaseAdmin.rpc(rpcName, rpcArgs);
     if (error) throw new Error(error.message.includes("Stock insuffisant") ? "Le stock a changé. Vérifiez votre panier." : "La commande n’a pas pu être enregistrée.");
     return { orderId, total };
   });

@@ -2,11 +2,15 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LogOut, Package, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import { formatPrice } from "@/lib/commerce";
 
 type ClientState =
   | { status: "loading" }
   | { status: "authenticated"; email: string }
   | { status: "error"; message: string };
+type CustomerOrder = Pick<Tables<"orders">, "id" | "created_at" | "total" | "status" | "items">;
+type OrderItem = { name: string; price: number; quantity: number; size: string | null; color: string | null };
 
 export const Route = createFileRoute("/espace-client")({
   head: () => ({
@@ -32,6 +36,8 @@ function ClientAreaPage() {
   const navigate = useNavigate();
   const [clientState, setClientState] = useState<ClientState>({ status: "loading" });
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [ordersError, setOrdersError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -50,6 +56,14 @@ function ClientAreaPage() {
         status: "authenticated",
         email: data.user.email ?? "Client Fernlace",
       });
+
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .select("id, created_at, total, status, items")
+        .eq("user_id", data.user.id)
+        .order("created_at", { ascending: false });
+      setOrdersError(Boolean(orderError));
+      if (!orderError) setOrders((orderData ?? []) as CustomerOrder[]);
     }
 
     void loadClient();
@@ -149,6 +163,63 @@ function ClientAreaPage() {
           </Link>
         </section>
       </div>
+
+      <section className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Suivi</p>
+            <h2 className="mt-2 font-display text-2xl font-bold text-foreground">Historique de mes commandes</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">{orders.length} commande{orders.length > 1 ? "s" : ""}</p>
+        </div>
+
+        {ordersError ? (
+          <p className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+            L’historique de vos commandes est momentanément indisponible.
+          </p>
+        ) : orders.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+            <Package className="mx-auto size-7 text-muted-foreground" />
+            <p className="mt-3 text-sm text-muted-foreground">Vos commandes apparaîtront ici après votre prochain achat.</p>
+            <Link className="mt-4 inline-flex text-sm font-semibold text-primary hover:underline" to="/catalogue">
+              Découvrir le catalogue
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-6 space-y-4">
+            {orders.map((order) => {
+              const items = Array.isArray(order.items) ? (order.items as unknown as OrderItem[]) : [];
+              return (
+                <article className="rounded-2xl border border-border bg-background p-4 sm:p-5" key={order.id}>
+                  <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                    <div>
+                      <p className="font-mono text-sm font-bold">#{order.id.slice(0, 8).toUpperCase()}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Passée le {new Date(order.created_at).toLocaleDateString("fr-FR", { dateStyle: "long" })}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 sm:text-right">
+                      <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{order.status}</span>
+                      <strong className="font-display text-xl">{formatPrice(Number(order.total))}</strong>
+                    </div>
+                  </div>
+                  <div className="mt-4 divide-y divide-border border-t border-border">
+                    {items.map((item, index) => (
+                      <div className="flex justify-between gap-4 py-3 text-sm" key={`${item.name}-${index}`}>
+                        <div>
+                          <p className="font-semibold">{item.quantity} × {item.name}</p>
+                          <p className="text-xs text-muted-foreground">{[item.size && `Taille ${item.size}`, item.color].filter(Boolean).join(" · ")}</p>
+                        </div>
+                        <p className="shrink-0 font-semibold">{formatPrice(item.price * item.quantity)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </main>
   );
 }
