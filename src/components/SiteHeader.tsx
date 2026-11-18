@@ -16,7 +16,7 @@ export function SiteHeader() {
           <Link to="/a-propos" className={`hidden md:inline ${cls}`} activeProps={active}>À propos</Link>
           <Link to="/contact" className={`hidden md:inline ${cls}`} activeProps={active}>Contact</Link>
           <Link to="/admin" className={`hidden md:inline ${cls}`} activeProps={active}>Créateur</Link>
-          <Link to="/connexion" className="flex items-center gap-2 rounded-full border border-border px-3 py-1.5 font-semibold" activeProps={{ className: "border-primary text-primary" }}>
+          <Link to="/espace-client" className="flex items-center gap-2 rounded-full border border-border px-3 py-1.5 font-semibold" activeProps={{ className: "border-primary text-primary" }}>
             <LogIn className="size-4" /> <span>Connexion</span>
           </Link>
           <Link to="/panier" className="flex items-center gap-2 rounded-full border border-border px-3 py-1.5 font-semibold" activeProps={{ className: "border-primary text-primary" }} aria-label={`Panier, ${count} article${count > 1 ? "s" : ""}`}>

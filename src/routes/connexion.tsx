@@ -50,7 +50,7 @@ function LoginPage() {
       return;
     }
 
-    await navigate({ to: "/" });
+    await navigate({ to: "/espace-client" });
   }
 
   return (

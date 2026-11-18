@@ -12,3 +12,8 @@
 - [x] Ajouter une page `/connexion` permettant aux clients de se connecter avec l’authentification Supabase existante.
 - [x] Ajouter un accès visible à la connexion depuis la navigation principale.
 - [x] Afficher les états de chargement et d’erreur sans exposer les détails techniques du fournisseur d’authentification.
+
+## Espace client protégé
+- [x] Créer une route `/espace-client` accessible uniquement avec une session Supabase valide.
+- [x] Rediriger les visiteurs non authentifiés vers `/connexion`.
+- [x] Permettre la déconnexion depuis l’espace client et rediriger vers la connexion.

@@ -16,6 +16,7 @@ import { Route as CatalogueRouteImport } from './routes/catalogue'
 import { Route as CommandeRouteImport } from './routes/commande'
 import { Route as ConnexionRouteImport } from './routes/connexion'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as EspaceClientRouteImport } from './routes/espace-client'
 import { Route as LivraisonRouteImport } from './routes/livraison'
 import { Route as PanierRouteImport } from './routes/panier'
 import { Route as RetoursRouteImport } from './routes/retours'
@@ -58,6 +59,11 @@ const ConnexionRoute = ConnexionRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EspaceClientRoute = EspaceClientRouteImport.update({
+  id: '/espace-client',
+  path: '/espace-client',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LivraisonRoute = LivraisonRouteImport.update({
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/commande': typeof CommandeRoute
   '/connexion': typeof ConnexionRoute
   '/contact': typeof ContactRoute
+  '/espace-client': typeof EspaceClientRoute
   '/livraison': typeof LivraisonRoute
   '/panier': typeof PanierRoute
   '/retours': typeof RetoursRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/commande': typeof CommandeRoute
   '/connexion': typeof ConnexionRoute
   '/contact': typeof ContactRoute
+  '/espace-client': typeof EspaceClientRoute
   '/livraison': typeof LivraisonRoute
   '/panier': typeof PanierRoute
   '/retours': typeof RetoursRoute
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/commande': typeof CommandeRoute
   '/connexion': typeof ConnexionRoute
   '/contact': typeof ContactRoute
+  '/espace-client': typeof EspaceClientRoute
   '/livraison': typeof LivraisonRoute
   '/panier': typeof PanierRoute
   '/retours': typeof RetoursRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/commande'
     | '/connexion'
     | '/contact'
+    | '/espace-client'
     | '/livraison'
     | '/panier'
     | '/retours'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/commande'
     | '/connexion'
     | '/contact'
+    | '/espace-client'
     | '/livraison'
     | '/panier'
     | '/retours'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/commande'
     | '/connexion'
     | '/contact'
+    | '/espace-client'
     | '/livraison'
     | '/panier'
     | '/retours'
@@ -213,6 +225,7 @@ export interface RootRouteChildren {
   CommandeRoute: typeof CommandeRoute
   ConnexionRoute: typeof ConnexionRoute
   ContactRoute: typeof ContactRoute
+  EspaceClientRoute: typeof EspaceClientRoute
   LivraisonRoute: typeof LivraisonRoute
   PanierRoute: typeof PanierRoute
   RetoursRoute: typeof RetoursRoute
@@ -268,6 +281,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/espace-client': {
+      id: '/espace-client'
+      path: '/espace-client'
+      fullPath: '/espace-client'
+      preLoaderRoute: typeof EspaceClientRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/livraison': {
@@ -353,6 +373,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommandeRoute: CommandeRoute,
   ConnexionRoute: ConnexionRoute,
   ContactRoute: ContactRoute,
+  EspaceClientRoute: EspaceClientRoute,
   LivraisonRoute: LivraisonRoute,
   PanierRoute: PanierRoute,
   RetoursRoute: RetoursRoute,
