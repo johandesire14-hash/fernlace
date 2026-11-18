@@ -10,6 +10,7 @@ export type CartItem = {
   size?: string | undefined;
   color?: string | undefined;
   quantity: number;
+  maxQuantity?: number | undefined;
 };
 
 type NewCartItem = Omit<CartItem, "key">;
@@ -51,12 +52,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
     addItem: (item) => {
       const key = `${item.id}|${item.size ?? ""}|${item.color ?? ""}`;
       setItems((current) => {
+        const usedByOtherColors = current
+          .filter((line) => line.key !== key && line.id === item.id && line.size === item.size)
+          .reduce((sum, line) => sum + line.quantity, 0);
+        const maximum = Math.max(0, (item.maxQuantity ?? 99) - usedByOtherColors);
         const existing = current.find((line) => line.key === key);
-        if (existing) return current.map((line) => line.key === key ? { ...line, quantity: Math.min(99, line.quantity + item.quantity) } : line);
-        return [...current, { ...item, key, quantity: Math.min(99, item.quantity) }];
+        if (existing) return current.map((line) => line.key === key ? { ...line, maxQuantity: item.maxQuantity, quantity: Math.min(maximum, line.quantity + item.quantity) } : line);
+        return [...current, { ...item, key, quantity: Math.min(maximum, item.quantity) }];
       });
     },
-    setQuantity: (key, quantity) => setItems((current) => current.map((item) => item.key === key ? { ...item, quantity: Math.max(1, Math.min(99, quantity)) } : item)),
+    setQuantity: (key, quantity) => setItems((current) => {
+      const target = current.find((item) => item.key === key);
+      if (!target) return current;
+      const usedByOtherColors = current
+        .filter((line) => line.key !== key && line.id === target.id && line.size === target.size)
+        .reduce((sum, line) => sum + line.quantity, 0);
+      const maximum = Math.max(1, (target.maxQuantity ?? 99) - usedByOtherColors);
+      return current.map((item) => item.key === key ? { ...item, quantity: Math.max(1, Math.min(maximum, quantity)) } : item);
+    }),
     removeItem: (key) => setItems((current) => current.filter((item) => item.key !== key)),
     clearCart: () => setItems([]),
   }), [items]);

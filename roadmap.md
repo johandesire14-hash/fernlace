@@ -1,5 +1,8 @@
 # Feuille de route
 
+- [ ] Gérer un stock indépendant pour chaque pointure et le déduire à la commande.
+- [ ] Rendre la catégorie obligatoire et permettre son changement rapide depuis la liste des produits.
+- [ ] Vérifier les règles de stock par pointure et de catégorie.
 - [ ] Ajouter le panier persistant et la page /panier (quantités, suppression, total).
 - [ ] Ajouter /commande avec validation, récapitulatif et enregistrement sécurisé en statut « En attente ».
 - [ ] Créer les pages À propos, Contact, Livraison et Retours.

@@ -22,15 +22,31 @@ export const submitOrder = createServerFn({ method: "POST" })
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const dbIds = [...new Set(data.items.map((item) => item.id).filter((id) => uuid.test(id)))];
     const { data: dbProducts, error: productError } = dbIds.length
-      ? await supabaseAdmin.from("products").select("id, name, price, quantity, status, images").in("id", dbIds)
+      ? await supabaseAdmin.from("products").select("id, name, price, quantity, status, images, sizes, size_stock").in("id", dbIds)
       : { data: [], error: null };
     if (productError) throw new Error("Impossible de vérifier les produits. Réessayez.");
 
     const quantities = new Map<string, number>();
-    for (const item of data.items) quantities.set(item.id, (quantities.get(item.id) ?? 0) + item.quantity);
+    const sizeQuantities = new Map<string, { id: string; size: string; quantity: number }>();
+    for (const item of data.items) {
+      quantities.set(item.id, (quantities.get(item.id) ?? 0) + item.quantity);
+      if (!uuid.test(item.id)) continue;
+      if (!item.size) throw new Error("Choisissez une pointure pour chaque paire.");
+      const key = `${item.id}|${item.size}`;
+      const line = sizeQuantities.get(key) ?? { id: item.id, size: item.size, quantity: 0 };
+      line.quantity += item.quantity;
+      sizeQuantities.set(key, line);
+    }
     for (const product of dbProducts ?? []) {
       if (product.status !== "Actif" || product.quantity < (quantities.get(product.id) ?? 0)) {
         throw new Error(`Stock insuffisant pour ${product.name}.`);
+      }
+      for (const line of sizeQuantities.values()) {
+        if (line.id !== product.id) continue;
+        const available = Number((product.size_stock as Record<string, number>)[line.size] ?? 0);
+        if (!product.sizes.includes(line.size) || available < line.quantity) {
+          throw new Error(`Stock insuffisant pour ${product.name} en pointure ${line.size}.`);
+        }
       }
     }
 
@@ -49,7 +65,7 @@ export const submitOrder = createServerFn({ method: "POST" })
         image: product.images[0] ?? null,
       };
     });
-    const stock = dbIds.map((id) => ({ id, quantity: quantities.get(id) ?? 0 }));
+    const stock = [...sizeQuantities.values()];
     const total = Math.round(orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100;
     const { data: orderId, error } = await supabaseAdmin.rpc("submit_order", {
       p_customer_name: data.customerName,

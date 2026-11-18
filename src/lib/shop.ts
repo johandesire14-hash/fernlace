@@ -1,12 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import { products as demoProducts, type Product } from "@/data/products";
+import { normalizeSizeStock, totalSizeStock, type SizeStock } from "@/lib/commerce";
 
 export const BUCKET = "product-images";
 
 type Row = {
   id: string; name: string; description: string; category: string; price: number;
   quantity: number; sizes: string[]; colors: string[]; images: string[];
-  compare_at_price: number | null; status: "Actif" | "Brouillon";
+  size_stock: SizeStock; compare_at_price: number | null; status: "Actif" | "Brouillon";
 };
 
 async function signImages(paths: string[]) {
@@ -16,6 +17,7 @@ async function signImages(paths: string[]) {
 }
 
 export async function rowToProduct(r: Row): Promise<Product> {
+  const sizeStock = normalizeSizeStock(r.sizes, r.size_stock);
   return {
     id: r.id,
     name: r.name,
@@ -28,7 +30,8 @@ export async function rowToProduct(r: Row): Promise<Product> {
     description: r.description,
     sizes: r.sizes,
     colors: r.colors,
-    quantity: r.quantity,
+    quantity: totalSizeStock(sizeStock),
+    sizeStock,
     compareAtPrice: r.compare_at_price === null ? null : Number(r.compare_at_price),
     status: r.status,
     sourceImages: r.images,

@@ -5,7 +5,7 @@ import { Copy, GripVertical, Pencil, Plus, Search, Trash2, X } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import type { Product } from "@/data/products";
 import { BUCKET, fetchCategoryNames, fetchDbProducts } from "@/lib/shop";
-import { formatPrice, parseColor } from "@/lib/commerce";
+import { formatPrice, normalizeSizeStock, parseColor, requireCategory, totalSizeStock } from "@/lib/commerce";
 
 export const Route = createFileRoute("/admin/produits")({
   head: () => ({ meta: [
@@ -22,7 +22,10 @@ function ProductsPage() {
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
   const [editor, setEditor] = useState<EditorState>(null);
+  const [changingCategory, setChangingCategory] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const { data: products = [], isLoading } = useQuery({ queryKey: ["admin-products"], queryFn: fetchDbProducts });
+  const { data: categoryList = [] } = useQuery({ queryKey: ["category-names"], queryFn: fetchCategoryNames });
   const filtered = products.filter((product) => `${product.name} ${product.category}`.toLowerCase().includes(query.toLowerCase()));
   const saved = () => { setEditor(null); qc.invalidateQueries(); };
   const remove = async (product: Product) => {
@@ -30,12 +33,33 @@ function ProductsPage() {
     const { error } = await supabase.from("products").delete().eq("id", product.id);
     if (!error) qc.invalidateQueries();
   };
+  const changeCategory = async (product: Product, category: string) => {
+    setChangingCategory(product.id);
+    setActionError(null);
+    const { error } = await supabase.from("products").update({ category }).eq("id", product.id);
+    if (error) setActionError("La catégorie n’a pas pu être modifiée.");
+    else await Promise.all([
+      qc.invalidateQueries({ queryKey: ["admin-products"] }),
+      qc.invalidateQueries({ queryKey: ["products"] }),
+    ]);
+    setChangingCategory(null);
+  };
 
   return <div>
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-3xl font-bold">Produits</h1><p className="mt-1 text-sm text-muted-foreground">{products.length} produit(s), dont {products.filter((p) => p.status === "Actif").length} actif(s).</p></div><button onClick={() => setEditor({ product: null, duplicate: false })} className="flex items-center gap-2 rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground"><Plus className="size-4" /> Ajouter un produit</button></div>
     <label className="mt-6 flex items-center gap-2 rounded-xl border border-input bg-background px-3"><Search className="size-4 text-muted-foreground" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher un nom ou une catégorie…" className="w-full bg-transparent py-3 text-sm outline-none" /></label>
+    {actionError && <p role="alert" className="mt-4 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{actionError}</p>}
     <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-card">
-      {isLoading ? <p className="p-6 text-sm text-muted-foreground">Chargement…</p> : filtered.length === 0 ? <div className="p-10 text-center"><p className="text-muted-foreground">Aucun produit trouvé.</p>{products.length === 0 && <button onClick={() => setEditor({ product: null, duplicate: false })} className="mt-3 text-primary">Ajouter votre premier produit</button>}</div> : <table className="w-full min-w-[760px] text-left text-sm"><thead className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="p-4">Produit</th><th className="p-4">Catégorie</th><th className="p-4">Stock</th><th className="p-4">Prix</th><th className="p-4">Statut</th><th className="p-4 text-right">Actions</th></tr></thead><tbody>{filtered.map((product) => <tr key={product.id} className="border-b border-border last:border-0"><td className="p-3"><div className="flex items-center gap-3"><div className="size-12 shrink-0 overflow-hidden rounded-lg bg-photo">{product.images[0] && <img src={product.images[0]} alt="" className="size-full object-cover" />}</div><span className="font-semibold">{product.name}</span></div></td><td className="p-4 text-muted-foreground">{product.category}</td><td className={`p-4 ${product.quantity === 0 ? "text-destructive" : ""}`}>{product.quantity === 0 ? "Rupture" : product.quantity}</td><td className="p-4 font-semibold">{formatPrice(product.price)}</td><td className="p-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${product.status === "Actif" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>{product.status}</span></td><td className="p-3"><div className="flex justify-end gap-1"><button onClick={() => setEditor({ product, duplicate: false })} className="p-2 text-muted-foreground hover:text-foreground" aria-label={`Modifier ${product.name}`}><Pencil className="size-4" /></button><button onClick={() => setEditor({ product, duplicate: true })} className="p-2 text-muted-foreground hover:text-foreground" aria-label={`Dupliquer ${product.name}`}><Copy className="size-4" /></button><button onClick={() => remove(product)} className="p-2 text-muted-foreground hover:text-destructive" aria-label={`Supprimer ${product.name}`}><Trash2 className="size-4" /></button></div></td></tr>)}</tbody></table>}
+      {isLoading ? <p className="p-6 text-sm text-muted-foreground">Chargement…</p> : filtered.length === 0 ? <div className="p-10 text-center"><p className="text-muted-foreground">Aucun produit trouvé.</p>{products.length === 0 && <button onClick={() => setEditor({ product: null, duplicate: false })} className="mt-3 text-primary">Ajouter votre premier produit</button>}</div> : <table className="w-full min-w-[900px] text-left text-sm"><thead className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="p-4">Produit</th><th className="p-4">Catégorie — modification rapide</th><th className="p-4">Stock par pointure</th><th className="p-4">Prix</th><th className="p-4">Statut</th><th className="p-4 text-right">Actions</th></tr></thead><tbody>{filtered.map((product) => {
+        const categories = [...new Set([...categoryList, product.category])];
+        return <tr key={product.id} className="border-b border-border last:border-0">
+          <td className="p-3"><div className="flex items-center gap-3"><div className="size-12 shrink-0 overflow-hidden rounded-lg bg-photo">{product.images[0] && <img src={product.images[0]} alt="" className="size-full object-cover" />}</div><span className="font-semibold">{product.name}</span></div></td>
+          <td className="p-3"><select aria-label={`Catégorie de ${product.name}`} value={product.category} disabled={changingCategory === product.id} onChange={(event) => changeCategory(product, event.target.value)} className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none focus:border-primary disabled:opacity-50">{categories.map((category) => <option key={category}>{category}</option>)}</select></td>
+          <td className={`p-4 ${product.quantity === 0 ? "text-destructive" : ""}`}><p className="font-semibold">{product.quantity === 0 ? "Rupture" : `${product.quantity} paire(s)`}</p><p className="mt-1 max-w-52 text-xs text-muted-foreground">{product.sizes?.map((size) => `${size} : ${product.sizeStock?.[size] ?? 0}`).join(" · ")}</p></td>
+          <td className="p-4 font-semibold">{formatPrice(product.price)}</td><td className="p-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${product.status === "Actif" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>{product.status}</span></td>
+          <td className="p-3"><div className="flex justify-end gap-1"><button onClick={() => setEditor({ product, duplicate: false })} className="p-2 text-muted-foreground hover:text-foreground" aria-label={`Modifier ${product.name}`}><Pencil className="size-4" /></button><button onClick={() => setEditor({ product, duplicate: true })} className="p-2 text-muted-foreground hover:text-foreground" aria-label={`Dupliquer ${product.name}`}><Copy className="size-4" /></button><button onClick={() => remove(product)} className="p-2 text-muted-foreground hover:text-destructive" aria-label={`Supprimer ${product.name}`}><Trash2 className="size-4" /></button></div></td>
+        </tr>;
+      })}</tbody></table>}
     </div>
     {editor && <ProductForm key={`${editor.product?.id ?? "new"}-${editor.duplicate}`} initial={editor.product} duplicate={editor.duplicate} onClose={() => setEditor(null)} onSaved={saved} />}
   </div>;
@@ -46,16 +70,19 @@ const defaultSizes = ["36", "37", "38", "39", "40", "41", "42", "43", "44", "45"
 type ImageDraft = { path: string | null; url: string; file?: File };
 
 function ProductForm({ initial, duplicate, onClose, onSaved }: { initial: Product | null; duplicate: boolean; onClose: () => void; onSaved: () => void }) {
+  const qc = useQueryClient();
   const { data: categoryList = [] } = useQuery({ queryKey: ["category-names"], queryFn: fetchCategoryNames });
   const categories = [...new Set([...categoryList, ...(initial ? [initial.category] : [])])];
   const [name, setName] = useState(initial ? `${initial.name}${duplicate ? " (copie)" : ""}` : "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [price, setPrice] = useState(initial ? String(initial.price) : "");
   const [compareAt, setCompareAt] = useState(initial?.compareAtPrice ? String(initial.compareAtPrice) : "");
-  const [quantity, setQuantity] = useState(String(initial?.quantity ?? 1));
   const [category, setCategory] = useState(initial?.category ?? "Basses");
+  const [newCategory, setNewCategory] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
   const [status, setStatus] = useState<"Actif" | "Brouillon">(duplicate ? "Brouillon" : initial?.status ?? "Actif");
   const [sizes, setSizes] = useState<string[]>(initial?.sizes ?? []);
+  const [sizeStock, setSizeStock] = useState(() => normalizeSizeStock(initial?.sizes ?? [], initial?.sizeStock));
   const [sizeInput, setSizeInput] = useState("");
   const [colors, setColors] = useState<string[]>(initial?.colors ?? []);
   const [colorName, setColorName] = useState("");
@@ -72,8 +99,31 @@ function ProductForm({ initial, duplicate, onClose, onSaved }: { initial: Produc
     if (accepted.length !== files.length) setError("Certaines images ont été ignorées (formats image de 10 Mo maximum uniquement).");
   };
   const makeMain = (index: number) => setImages((current) => [current[index]!, ...current.filter((_, i) => i !== index)]);
-  const addSize = () => { const value = sizeInput.trim(); if (value && !sizes.includes(value)) setSizes([...sizes, value]); setSizeInput(""); };
+  const toggleSize = (size: string) => {
+    if (sizes.includes(size)) {
+      setSizes(sizes.filter((item) => item !== size));
+      setSizeStock((current) => Object.fromEntries(Object.entries(current).filter(([item]) => item !== size)));
+    } else {
+      setSizes([...sizes, size]);
+      setSizeStock((current) => ({ ...current, [size]: 0 }));
+    }
+  };
+  const addSize = () => { const value = sizeInput.trim(); if (value && !sizes.includes(value)) { setSizes([...sizes, value]); setSizeStock((current) => ({ ...current, [value]: 0 })); } setSizeInput(""); };
   const addColor = () => { const value = colorName.trim(); if (value) setColors([...colors, `${value}|${colorHex}`]); setColorName(""); };
+  const createCategory = async () => {
+    const value = newCategory.trim();
+    if (!value) return;
+    setCreatingCategory(true);
+    setError(null);
+    const { error: categoryError } = await supabase.from("categories").insert({ name: value });
+    if (categoryError) setError("Cette catégorie existe déjà ou ne peut pas être créée.");
+    else {
+      setCategory(value);
+      setNewCategory("");
+      await qc.invalidateQueries({ queryKey: ["category-names"] });
+    }
+    setCreatingCategory(false);
+  };
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true); setError(null);
@@ -81,6 +131,9 @@ function ProductForm({ initial, duplicate, onClose, onSaved }: { initial: Produc
       const numericPrice = Number(price);
       if (!Number.isFinite(numericPrice) || numericPrice < 0) throw new Error("Le prix est invalide.");
       if (compareAt && Number(compareAt) < numericPrice) throw new Error("Le prix barré doit être supérieur ou égal au prix de vente.");
+      if (!sizes.length) throw new Error("Ajoutez au moins une pointure et son stock.");
+      const normalizedStock = normalizeSizeStock(sizes, sizeStock);
+      const requiredCategory = requireCategory(category);
       const paths: string[] = [];
       for (const image of images) {
         if (image.path) { paths.push(image.path); continue; }
@@ -92,8 +145,8 @@ function ProductForm({ initial, duplicate, onClose, onSaved }: { initial: Produc
       }
       const values = {
         name: name.trim(), description: description.trim(), price: numericPrice,
-        compare_at_price: compareAt ? Number(compareAt) : null, category, status,
-        quantity: Math.max(0, parseInt(quantity) || 0), sizes, colors, images: paths,
+        compare_at_price: compareAt ? Number(compareAt) : null, category: requiredCategory, status,
+        quantity: totalSizeStock(normalizedStock), sizes, size_stock: normalizedStock, colors, images: paths,
       };
       const { error: saveError } = initial && !duplicate
         ? await supabase.from("products").update(values).eq("id", initial.id)
@@ -113,8 +166,8 @@ function ProductForm({ initial, duplicate, onClose, onSaved }: { initial: Produc
           <Field label="Nom *"><input className={input} required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex. Court High Sauge" /></Field>
           <Field label="Description"><textarea className={input} rows={5} maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Matières, coupe, entretien…" /></Field>
           <div className="grid grid-cols-2 gap-3"><Field label="Prix (€) *"><input className={input} required type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} /></Field><Field label="Prix barré (€)"><input className={input} type="number" min="0" step="0.01" value={compareAt} onChange={(e) => setCompareAt(e.target.value)} placeholder="Optionnel" /></Field></div>
-          <div className="grid grid-cols-2 gap-3"><Field label="Quantité en stock"><input className={input} type="number" min="0" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field><Field label="Statut"><select className={input} value={status} onChange={(e) => setStatus(e.target.value as "Actif" | "Brouillon")}><option>Actif</option><option>Brouillon</option></select></Field></div>
-          <Field label="Catégorie"><select className={input} value={category} onChange={(e) => setCategory(e.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></Field>
+          <div className="grid grid-cols-2 gap-3"><div><span className="mb-1.5 block text-sm text-muted-foreground">Stock total</span><p className="rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm font-semibold">{totalSizeStock(normalizeSizeStock(sizes, sizeStock))} paire(s)</p><p className="mt-1 text-xs text-muted-foreground">Calculé avec les pointures.</p></div><Field label="Statut"><select className={input} value={status} onChange={(e) => setStatus(e.target.value as "Actif" | "Brouillon")}><option>Actif</option><option>Brouillon</option></select></Field></div>
+          <Field label="Catégorie *"><select className={input} required value={category} onChange={(e) => setCategory(e.target.value)}><option value="" disabled>Choisir une catégorie</option>{categories.map((item) => <option key={item}>{item}</option>)}</select><div className="mt-2 flex gap-2"><input className={input} value={newCategory} onChange={(e) => setNewCategory(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createCategory(); } }} placeholder="Nouvelle catégorie" maxLength={80} /><button type="button" disabled={creatingCategory || !newCategory.trim()} onClick={createCategory} className="shrink-0 rounded-xl border border-border px-3 text-sm font-semibold disabled:opacity-50">{creatingCategory ? "Ajout…" : "+ Créer"}</button></div></Field>
         </div>
         <div className="space-y-4">
           <Field label="Photos — première photo = image principale">
@@ -123,7 +176,7 @@ function ProductForm({ initial, duplicate, onClose, onSaved }: { initial: Produc
             </div>
             {images.length > 0 && <div className="mt-3 grid grid-cols-3 gap-2">{images.map((image, index) => <div key={`${image.url}-${index}`} className={`relative overflow-hidden rounded-xl border-2 ${index === 0 ? "border-primary" : "border-transparent"}`}><img src={image.url} alt={`Produit ${index + 1}`} className="aspect-square w-full object-cover" /><div className="absolute inset-x-0 bottom-0 flex justify-between bg-background/85 px-1 py-1"><button type="button" onClick={() => makeMain(index)} className="rounded p-1 text-xs" title="Définir comme image principale">{index === 0 ? "Principale" : <GripVertical className="size-4" />}</button><button type="button" onClick={() => setImages(images.filter((_, i) => i !== index))} className="p-1" aria-label="Retirer la photo"><X className="size-3" /></button></div></div>)}</div>}
           </Field>
-          <Field label="Tailles disponibles"><div className="flex flex-wrap gap-2">{sizeOptions.map((size) => <Chip key={size} on={sizes.includes(size)} onClick={() => setSizes(sizes.includes(size) ? sizes.filter((item) => item !== size) : [...sizes, size])}>{size}</Chip>)}</div><div className="mt-2 flex gap-2"><input className={input} value={sizeInput} onChange={(e) => setSizeInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSize(); } }} placeholder="Autre : S, M, L, 47…" /><button type="button" onClick={addSize} className="rounded-xl border border-border px-4">+</button></div></Field>
+          <Field label="Pointures et stock *"><div className="flex flex-wrap gap-2">{sizeOptions.map((size) => <Chip key={size} on={sizes.includes(size)} onClick={() => toggleSize(size)}>{size}</Chip>)}</div><div className="mt-2 flex gap-2"><input className={input} value={sizeInput} onChange={(e) => setSizeInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSize(); } }} placeholder="Autre : S, M, L, 47…" /><button type="button" onClick={addSize} className="rounded-xl border border-border px-4">+</button></div>{sizes.length > 0 && <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{sizes.map((size) => <label key={size} className="rounded-xl border border-border bg-background p-2.5"><span className="block text-xs font-semibold">Pointure {size}</span><span className="mt-1 flex items-center gap-2"><input aria-label={`Stock pointure ${size}`} type="number" required min="0" max="9999" step="1" value={sizeStock[size] ?? 0} onChange={(e) => setSizeStock((current) => ({ ...current, [size]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))} className="w-full min-w-0 bg-transparent py-1 text-lg font-bold outline-none" /><span className="text-xs text-muted-foreground">paires</span></span></label>)}</div>}</Field>
           <Field label="Couleurs"><div className="flex gap-2"><input type="color" value={colorHex} onChange={(e) => setColorHex(e.target.value)} className="h-11 w-12 rounded-lg border border-input bg-background p-1" aria-label="Pastille de couleur" /><input className={input} value={colorName} onChange={(e) => setColorName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addColor(); } }} placeholder="Ex. Sauge" /><button type="button" onClick={addColor} className="rounded-xl border border-border px-4">+</button></div>{colors.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{colors.map((value) => { const color = parseColor(value); return <Chip key={value} on onClick={() => setColors(colors.filter((item) => item !== value))}><span className="flex items-center gap-2">{color.hex && <span className="size-3 rounded-full border border-border" style={{ backgroundColor: color.hex }} />}{color.name} <X className="size-3" /></span></Chip>; })}</div>}</Field>
         </div>
       </div>

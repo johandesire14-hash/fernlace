@@ -19,3 +19,22 @@ export function parseColor(value: string) {
   const [name, hex] = value.split("|");
   return { name: name || value, hex: /^#[0-9a-fA-F]{6}$/.test(hex ?? "") ? hex : null };
 }
+
+export type SizeStock = Record<string, number>;
+
+export function normalizeSizeStock(sizes: string[], stock: SizeStock = {}): SizeStock {
+  return Object.fromEntries(sizes.map((size) => {
+    const value = Number(stock[size] ?? 0);
+    return [size, Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0];
+  }));
+}
+
+export function totalSizeStock(stock: SizeStock) {
+  return Object.values(stock).reduce((total, quantity) => total + quantity, 0);
+}
+
+export function requireCategory(category: string) {
+  const value = category.trim();
+  if (!value) throw new Error("Choisissez une catégorie pour cette paire.");
+  return value;
+}

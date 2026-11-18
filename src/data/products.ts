@@ -17,6 +17,7 @@ export type Product = {
   sizes?: string[];
   colors?: string[];
   quantity?: number;
+  sizeStock?: Record<string, number>;
   compareAtPrice?: number | null;
   status?: "Actif" | "Brouillon";
   sourceImages?: string[];

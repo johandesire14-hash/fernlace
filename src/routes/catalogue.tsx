@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { categories, products } from "@/data/products";
-import { fetchAllProducts } from "@/lib/shop";
+import { products } from "@/data/products";
+import { fetchAllProducts, fetchCategoryNames } from "@/lib/shop";
 import { ProductCard } from "@/components/ProductCard";
 
 export const Route = createFileRoute("/catalogue")({
@@ -20,9 +20,11 @@ export const Route = createFileRoute("/catalogue")({
 });
 
 function Catalogue() {
-  const [cat, setCat] = useState<(typeof categories)[number]>("Tout");
+  const [cat, setCat] = useState("Tout");
   const [sort, setSort] = useState("pop");
   const { data: all = products } = useQuery({ queryKey: ["products"], queryFn: fetchAllProducts });
+  const { data: categoryNames = [] } = useQuery({ queryKey: ["category-names"], queryFn: fetchCategoryNames });
+  const categories = ["Tout", ...categoryNames];
   const list = [...all]
     .filter((p) => cat === "Tout" || p.category === cat)
     .sort((a, b) => (sort === "asc" ? a.price - b.price : sort === "desc" ? b.price - a.price : b.sold - a.sold));

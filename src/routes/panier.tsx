@@ -43,7 +43,7 @@ function CartPage() {
                     <div className="flex items-center rounded-lg border border-border">
                       <button onClick={() => setQuantity(item.key, item.quantity - 1)} disabled={item.quantity <= 1} className="p-2 disabled:opacity-30" aria-label="Diminuer la quantité"><Minus className="size-4" /></button>
                       <span className="w-8 text-center text-sm font-semibold" aria-live="polite">{item.quantity}</span>
-                      <button onClick={() => setQuantity(item.key, item.quantity + 1)} disabled={item.quantity >= 99} className="p-2 disabled:opacity-30" aria-label="Augmenter la quantité"><Plus className="size-4" /></button>
+                      <button onClick={() => setQuantity(item.key, item.quantity + 1)} disabled={item.quantity >= (item.maxQuantity ?? 99)} className="p-2 disabled:opacity-30" aria-label="Augmenter la quantité"><Plus className="size-4" /></button>
                     </div>
                     <p className="font-display font-bold">{formatPrice(item.price * item.quantity)}</p>
                   </div>

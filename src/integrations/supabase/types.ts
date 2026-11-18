@@ -80,6 +80,7 @@ export type Database = {
           name: string
           price: number
           quantity: number
+          size_stock: Json
           sizes: string[]
           status: string
         }
@@ -94,6 +95,7 @@ export type Database = {
           name: string
           price?: number
           quantity?: number
+          size_stock?: Json
           sizes?: string[]
           status?: string
         }
@@ -108,6 +110,7 @@ export type Database = {
           name?: string
           price?: number
           quantity?: number
+          size_stock?: Json
           sizes?: string[]
           status?: string
         }
