@@ -24,6 +24,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
 import { Route as AdminCommandesRouteImport } from './routes/admin.commandes'
 import { Route as AdminProduitsRouteImport } from './routes/admin.produits'
+import { Route as EspaceClientProfilRouteImport } from './routes/espace-client.profil'
 import { Route as ProduitIdRouteImport } from './routes/produit.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -101,6 +102,11 @@ const AdminProduitsRoute = AdminProduitsRouteImport.update({
   path: '/produits',
   getParentRoute: () => AdminRoute,
 } as any)
+const EspaceClientProfilRoute = EspaceClientProfilRouteImport.update({
+  id: '/profil',
+  path: '/profil',
+  getParentRoute: () => EspaceClientRoute,
+} as any)
 const ProduitIdRoute = ProduitIdRouteImport.update({
   id: '/produit/$id',
   path: '/produit/$id',
@@ -115,13 +121,14 @@ export interface FileRoutesByFullPath {
   '/commande': typeof CommandeRoute
   '/connexion': typeof ConnexionRoute
   '/contact': typeof ContactRoute
-  '/espace-client': typeof EspaceClientRoute
+  '/espace-client': typeof EspaceClientRouteWithChildren
   '/livraison': typeof LivraisonRoute
   '/panier': typeof PanierRoute
   '/retours': typeof RetoursRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/commandes': typeof AdminCommandesRoute
   '/admin/produits': typeof AdminProduitsRoute
+  '/espace-client/profil': typeof EspaceClientProfilRoute
   '/produit/$id': typeof ProduitIdRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -132,13 +139,14 @@ export interface FileRoutesByTo {
   '/commande': typeof CommandeRoute
   '/connexion': typeof ConnexionRoute
   '/contact': typeof ContactRoute
-  '/espace-client': typeof EspaceClientRoute
+  '/espace-client': typeof EspaceClientRouteWithChildren
   '/livraison': typeof LivraisonRoute
   '/panier': typeof PanierRoute
   '/retours': typeof RetoursRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/commandes': typeof AdminCommandesRoute
   '/admin/produits': typeof AdminProduitsRoute
+  '/espace-client/profil': typeof EspaceClientProfilRoute
   '/produit/$id': typeof ProduitIdRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -151,13 +159,14 @@ export interface FileRoutesById {
   '/commande': typeof CommandeRoute
   '/connexion': typeof ConnexionRoute
   '/contact': typeof ContactRoute
-  '/espace-client': typeof EspaceClientRoute
+  '/espace-client': typeof EspaceClientRouteWithChildren
   '/livraison': typeof LivraisonRoute
   '/panier': typeof PanierRoute
   '/retours': typeof RetoursRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/commandes': typeof AdminCommandesRoute
   '/admin/produits': typeof AdminProduitsRoute
+  '/espace-client/profil': typeof EspaceClientProfilRoute
   '/produit/$id': typeof ProduitIdRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/admin/categories'
     | '/admin/commandes'
     | '/admin/produits'
+    | '/espace-client/profil'
     | '/produit/$id'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/admin/categories'
     | '/admin/commandes'
     | '/admin/produits'
+    | '/espace-client/profil'
     | '/produit/$id'
     | '/admin'
   id:
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/admin/categories'
     | '/admin/commandes'
     | '/admin/produits'
+    | '/espace-client/profil'
     | '/produit/$id'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -225,7 +237,7 @@ export interface RootRouteChildren {
   CommandeRoute: typeof CommandeRoute
   ConnexionRoute: typeof ConnexionRoute
   ContactRoute: typeof ContactRoute
-  EspaceClientRoute: typeof EspaceClientRoute
+  EspaceClientRoute: typeof EspaceClientRouteWithChildren
   LivraisonRoute: typeof LivraisonRoute
   PanierRoute: typeof PanierRoute
   RetoursRoute: typeof RetoursRoute
@@ -339,6 +351,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProduitsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/espace-client/profil': {
+      id: '/espace-client/profil'
+      path: '/profil'
+      fullPath: '/espace-client/profil'
+      preLoaderRoute: typeof EspaceClientProfilRouteImport
+      parentRoute: typeof EspaceClientRoute
+    }
     '/produit/$id': {
       id: '/produit/$id'
       path: '/produit/$id'
@@ -365,6 +384,18 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface EspaceClientRouteChildren {
+  EspaceClientProfilRoute: typeof EspaceClientProfilRoute
+}
+
+const EspaceClientRouteChildren: EspaceClientRouteChildren = {
+  EspaceClientProfilRoute: EspaceClientProfilRoute,
+}
+
+const EspaceClientRouteWithChildren = EspaceClientRoute._addFileChildren(
+  EspaceClientRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AProposRoute: AProposRoute,
@@ -373,7 +404,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommandeRoute: CommandeRoute,
   ConnexionRoute: ConnexionRoute,
   ContactRoute: ContactRoute,
-  EspaceClientRoute: EspaceClientRoute,
+  EspaceClientRoute: EspaceClientRouteWithChildren,
   LivraisonRoute: LivraisonRoute,
   PanierRoute: PanierRoute,
   RetoursRoute: RetoursRoute,

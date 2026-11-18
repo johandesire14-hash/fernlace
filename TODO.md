@@ -17,3 +17,8 @@
 - [x] Créer une route `/espace-client` accessible uniquement avec une session Supabase valide.
 - [x] Rediriger les visiteurs non authentifiés vers `/connexion`.
 - [x] Permettre la déconnexion depuis l’espace client et rediriger vers la connexion.
+
+## Profil client
+- [x] Ajouter une page `/espace-client/profil` protégée permettant de modifier les informations personnelles.
+- [x] Enregistrer le nom complet, le téléphone et la ville dans les métadonnées du compte Supabase.
+- [x] Afficher une confirmation de réussite ou une erreur utilisateur lors de l’enregistrement.

@@ -125,6 +125,12 @@ function ClientAreaPage() {
             Votre compte est prêt. Nous utiliserons cette adresse pour vous tenir informé de vos commandes.
           </p>
           <p className="mt-4 rounded-xl bg-muted px-4 py-3 text-sm font-medium text-foreground">{clientState.email}</p>
+          <Link
+            className="mt-5 inline-flex items-center rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary hover:text-primary"
+            to="/espace-client/profil"
+          >
+            Modifier mes informations
+          </Link>
         </section>
 
         <section className="rounded-3xl border border-border bg-card p-6 shadow-sm">
