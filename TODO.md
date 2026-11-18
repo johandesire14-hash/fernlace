@@ -7,3 +7,8 @@
 - [x] Préserver la configuration et le processus de développement/build Vite.
 - [x] Reprendre à l’identique les fonctionnalités, contenus, parcours et comportements existants, sans nouvelle fonctionnalité ni changement d’orientation produit.
 - [x] Valider le lancement et la compilation de l’application dans l’environnement Webdev géré.
+
+## Connexion client
+- [x] Ajouter une page `/connexion` permettant aux clients de se connecter avec l’authentification Supabase existante.
+- [x] Ajouter un accès visible à la connexion depuis la navigation principale.
+- [x] Afficher les états de chargement et d’erreur sans exposer les détails techniques du fournisseur d’authentification.
