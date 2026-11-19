@@ -38,9 +38,9 @@
 - [x] Ajouter une actualisation manuelle de secours.
 
 ## Carte de livraison
-- [x] Ajouter une carte interactive par commande lorsque des coordonnées GPS sont disponibles.
-- [x] Permettre à la gestion des commandes de mettre à jour la position du colis.
-- [x] Synchroniser la position en direct avec l’espace client.
+- [x] Retirer la section « Position actuelle du colis » de l’espace client.
+- [x] Retirer la saisie des coordonnées GPS du back-office.
+- [x] Conserver la timeline de statut et le téléchargement de facture PDF.
 
 ## Authentification locale temporaire
 - [x] Basculer automatiquement vers un mock en développement lorsque Supabase n’est pas configuré.
