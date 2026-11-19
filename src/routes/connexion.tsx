@@ -34,7 +34,7 @@ function LoginPage() {
     setErrorMessage("");
     setIsSubmitting(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
@@ -50,7 +50,8 @@ function LoginPage() {
       return;
     }
 
-    await navigate({ to: "/espace-client" });
+    const isCreator = data.user?.user_metadata?.account_type === "createur";
+    await navigate({ to: isCreator ? "/admin" : "/espace-client" });
   }
 
   return (
