@@ -41,3 +41,8 @@
 - [x] Ajouter une carte interactive par commande lorsque des coordonnées GPS sont disponibles.
 - [x] Permettre à la gestion des commandes de mettre à jour la position du colis.
 - [x] Synchroniser la position en direct avec l’espace client.
+
+## Authentification locale temporaire
+- [x] Basculer automatiquement vers un mock en développement lorsque Supabase n’est pas configuré.
+- [x] Fournir un compte client et un compte créateur de test avec session persistante locale.
+- [x] Désactiver le mock dans les builds de production.

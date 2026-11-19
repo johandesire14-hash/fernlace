@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { FormEvent, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { isMockAuthEnabled, mockAccounts, supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/connexion")({
   head: () => ({
@@ -125,6 +125,18 @@ function LoginPage() {
             {isSubmitting ? "Connexion…" : "Se connecter"}
           </button>
         </form>
+
+        {isMockAuthEnabled ? (
+          <div className="mt-6 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-4 text-xs text-amber-950 dark:bg-amber-950/20 dark:text-amber-100">
+            <p className="font-bold">Mode test local actif</p>
+            <p className="mt-1 leading-5">Ces comptes sont stockés uniquement dans ce navigateur et ne sont jamais envoyés à Supabase.</p>
+            <div className="mt-3 space-y-2 font-mono">
+              <p><span className="font-sans font-semibold">Client :</span> {mockAccounts.client.email} / {mockAccounts.client.password}</p>
+              <p><span className="font-sans font-semibold">Créateur :</span> {mockAccounts.createur.email} / {mockAccounts.createur.password}</p>
+            </div>
+            <Link className="mt-3 inline-flex font-sans font-semibold underline" to="/admin">Tester l’espace créateur →</Link>
+          </div>
+        ) : null}
 
         <p className="mt-8 text-center text-sm text-muted-foreground">
           Pas encore de compte ?{" "}
