@@ -1,15 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Check, FileDown, LogOut, Package, RefreshCw, Truck, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { formatPrice } from "@/lib/commerce";
+import "leaflet/dist/leaflet.css";
 
 type ClientState =
   | { status: "loading" }
   | { status: "authenticated"; email: string }
   | { status: "error"; message: string };
-type CustomerOrder = Pick<Tables<"orders">, "id" | "created_at" | "total" | "status" | "items" | "customer_name" | "phone" | "address" | "city">;
+type CustomerOrder = Pick<Tables<"orders">, "id" | "created_at" | "total" | "status" | "items" | "customer_name" | "phone" | "address" | "city" | "tracking_latitude" | "tracking_longitude" | "tracking_updated_at">;
 type OrderItem = { name: string; price: number; quantity: number; size: string | null; color: string | null };
 const trackingSteps = ["En attente", "Confirmée", "Expédiée", "Livrée"] as const;
 
@@ -64,7 +65,7 @@ function ClientAreaPage() {
 
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
-        .select("id, created_at, total, status, items, customer_name, phone, address, city")
+        .select("id, created_at, total, status, items, customer_name, phone, address, city, tracking_latitude, tracking_longitude, tracking_updated_at")
         .eq("user_id", data.user.id)
         .order("created_at", { ascending: false });
       setOrdersError(Boolean(orderError));
@@ -79,7 +80,7 @@ function ClientAreaPage() {
             const updatedOrder = payload.new as CustomerOrder;
             setOrders((current) => current.map((order) => (
               order.id === updatedOrder.id
-                ? { ...order, status: updatedOrder.status, total: updatedOrder.total, items: updatedOrder.items }
+                ? { ...order, status: updatedOrder.status, total: updatedOrder.total, items: updatedOrder.items, tracking_latitude: updatedOrder.tracking_latitude, tracking_longitude: updatedOrder.tracking_longitude, tracking_updated_at: updatedOrder.tracking_updated_at }
                 : order
             )));
           },
@@ -120,7 +121,7 @@ function ClientAreaPage() {
     setRefreshingOrderId(orderId);
     const { data, error } = await supabase
       .from("orders")
-      .select("id, created_at, total, status, items, customer_name, phone, address, city")
+      .select("id, created_at, total, status, items, customer_name, phone, address, city, tracking_latitude, tracking_longitude, tracking_updated_at")
       .eq("id", orderId)
       .eq("user_id", customerId)
       .maybeSingle();
@@ -362,6 +363,22 @@ function ClientAreaPage() {
                     )}
                     <p className="mt-4 text-xs text-muted-foreground">Le statut se met à jour automatiquement lorsque votre commande avance.</p>
                   </div>
+                  {order.tracking_latitude !== null && order.tracking_longitude !== null ? (
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-border">
+                      <div className="flex items-center justify-between gap-3 bg-card px-4 py-3">
+                        <div>
+                          <p className="flex items-center gap-2 text-sm font-semibold"><Truck className="size-4 text-primary" /> Position actuelle du colis</p>
+                          {order.tracking_updated_at ? <p className="mt-1 text-xs text-muted-foreground">Mise à jour le {new Date(order.tracking_updated_at).toLocaleString("fr-FR")}</p> : null}
+                        </div>
+                        <span className="text-xs text-muted-foreground">OpenStreetMap</span>
+                      </div>
+                      <LivePackageMap latitude={order.tracking_latitude} longitude={order.tracking_longitude} />
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-2xl border border-dashed border-border bg-card px-4 py-4 text-sm text-muted-foreground">
+                      La carte apparaîtra dès que le transporteur transmettra la position du colis.
+                    </div>
+                  )}
                   <div className="mt-4 divide-y divide-border border-t border-border">
                     {items.map((item, index) => (
                       <div className="flex justify-between gap-4 py-3 text-sm" key={`${item.name}-${index}`}>
@@ -392,4 +409,36 @@ function ClientAreaPage() {
       </section>
     </main>
   );
+}
+
+function LivePackageMap({ latitude, longitude }: { latitude: number; longitude: number }) {
+  const mapElement = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let disposed = false;
+    let map: import("leaflet").Map | undefined;
+
+    void import("leaflet").then((L) => {
+      if (disposed || !mapElement.current) return;
+      map = L.map(mapElement.current, { zoomControl: true }).setView([latitude, longitude], 13);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(map);
+      L.circleMarker([latitude, longitude], {
+        color: "#4f8f52",
+        fillColor: "#79bd7b",
+        fillOpacity: 0.9,
+        radius: 9,
+        weight: 3,
+      }).addTo(map);
+    });
+
+    return () => {
+      disposed = true;
+      map?.remove();
+    };
+  }, [latitude, longitude]);
+
+  return <div className="h-64 w-full bg-muted" ref={mapElement} />;
 }

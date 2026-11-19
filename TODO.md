@@ -36,3 +36,8 @@
 - [x] Afficher une timeline de livraison par commande.
 - [x] Mettre à jour le statut en direct via Supabase Realtime.
 - [x] Ajouter une actualisation manuelle de secours.
+
+## Carte de livraison
+- [x] Ajouter une carte interactive par commande lorsque des coordonnées GPS sont disponibles.
+- [x] Permettre à la gestion des commandes de mettre à jour la position du colis.
+- [x] Synchroniser la position en direct avec l’espace client.

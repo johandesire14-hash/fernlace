@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -21,15 +21,40 @@ export const Route = createFileRoute("/admin/commandes")({
 function OrdersPage() {
   const qc = useQueryClient();
   const [selected, setSelected] = useState<string | null>(null);
+  const [trackingPosition, setTrackingPosition] = useState({ latitude: "", longitude: "" });
+  const [savingTracking, setSavingTracking] = useState(false);
   const { data: orders = [], isLoading } = useQuery({ queryKey: ["admin-orders", "full"], queryFn: async () => {
     const { data, error } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
     if (error) throw error;
     return data as Order[];
   } });
   const current = orders.find((order) => order.id === selected);
+  useEffect(() => {
+    setTrackingPosition({
+      latitude: current?.tracking_latitude?.toString() ?? "",
+      longitude: current?.tracking_longitude?.toString() ?? "",
+    });
+  }, [current?.id]);
   const updateStatus = async (id: string, status: string) => {
     const { error } = await supabase.from("orders").update({ status }).eq("id", id);
     if (!error) { qc.invalidateQueries({ queryKey: ["admin-orders"] }); qc.invalidateQueries({ queryKey: ["admin-orders", "full"] }); }
+  };
+  const updateTrackingPosition = async () => {
+    if (!current) return;
+    const latitude = trackingPosition.latitude.trim();
+    const longitude = trackingPosition.longitude.trim();
+    if ((latitude && !longitude) || (!latitude && longitude)) return;
+    setSavingTracking(true);
+    const { error } = await supabase.from("orders").update({
+      tracking_latitude: latitude ? Number(latitude) : null,
+      tracking_longitude: longitude ? Number(longitude) : null,
+      tracking_updated_at: latitude && longitude ? new Date().toISOString() : null,
+    }).eq("id", current.id);
+    if (!error) {
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["admin-orders", "full"] });
+    }
+    setSavingTracking(false);
   };
 
   return <div>
@@ -44,6 +69,15 @@ function OrdersPage() {
       <h3 className="mt-6 font-bold">Articles</h3><div className="mt-2 divide-y divide-border">{(current.items as unknown as OrderItem[]).map((item, index) => <div key={`${item.id}-${index}`} className="flex justify-between gap-3 py-3 text-sm"><div><p className="font-semibold">{item.quantity} × {item.name}</p><p className="text-xs text-muted-foreground">{[item.size && `Taille ${item.size}`, item.color].filter(Boolean).join(" · ")}</p></div><p className="font-semibold">{formatPrice(item.price * item.quantity)}</p></div>)}</div>
       <div className="mt-4 flex justify-between border-t border-border pt-4"><span>Total</span><strong className="font-display text-2xl">{formatPrice(Number(current.total))}</strong></div>
       <label className="mt-6 block text-sm font-semibold">Statut<select value={current.status} onChange={(e) => updateStatus(current.id, e.target.value)} className="mt-2 w-full rounded-xl border border-input bg-background px-3 py-3">{ORDER_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
+      <div className="mt-6 rounded-xl border border-border bg-background p-4">
+        <h3 className="font-semibold">Position du colis</h3>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">Saisissez les coordonnées GPS du colis pour les afficher sur la carte client.</p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <label className="text-xs text-muted-foreground">Latitude<input className="mt-1 w-full rounded-lg border border-input bg-card px-2.5 py-2 text-sm text-foreground" inputMode="decimal" max="90" min="-90" onChange={(e) => setTrackingPosition((position) => ({ ...position, latitude: e.target.value }))} placeholder="48.8566" step="any" type="number" value={trackingPosition.latitude} /></label>
+          <label className="text-xs text-muted-foreground">Longitude<input className="mt-1 w-full rounded-lg border border-input bg-card px-2.5 py-2 text-sm text-foreground" inputMode="decimal" max="180" min="-180" onChange={(e) => setTrackingPosition((position) => ({ ...position, longitude: e.target.value }))} placeholder="2.3522" step="any" type="number" value={trackingPosition.longitude} /></label>
+        </div>
+        <button className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:border-primary hover:text-primary disabled:opacity-50" disabled={savingTracking} onClick={() => void updateTrackingPosition()} type="button">{savingTracking ? "Mise à jour…" : "Mettre à jour la position"}</button>
+      </div>
     </section></div>}
   </div>;
 }

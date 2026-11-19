@@ -42,6 +42,9 @@ export type Database = {
           items: Json
           phone: string
           status: string
+          tracking_latitude: number | null
+          tracking_longitude: number | null
+          tracking_updated_at: string | null
           total: number
           user_id: string | null
         }
@@ -54,6 +57,9 @@ export type Database = {
           items?: Json
           phone: string
           status?: string
+          tracking_latitude?: number | null
+          tracking_longitude?: number | null
+          tracking_updated_at?: string | null
           total?: number
           user_id?: string | null
         }
@@ -66,6 +72,9 @@ export type Database = {
           items?: Json
           phone?: string
           status?: string
+          tracking_latitude?: number | null
+          tracking_longitude?: number | null
+          tracking_updated_at?: string | null
           total?: number
           user_id?: string | null
         }
