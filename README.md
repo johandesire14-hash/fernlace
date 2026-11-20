@@ -1,12 +1,12 @@
-# Global Finds Showcase
+# Fernlace Studio
 
-https://globalfinds.gg/product/gf7442588307 Copie intégralement ce site web
+https://github.com/johandesire14-hash/fernlace Import
 
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/a5974ad4-dfe1-4981-b8b5-3f735ae92146).
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/cdc52533-4876-4d87-bd51-d599a08a9894).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
 - **Stay in sync**: every change made in Lovable is committed straight to this repository.

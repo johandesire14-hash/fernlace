@@ -43,7 +43,6 @@ export type Database = {
           phone: string
           status: string
           total: number
-          user_id: string | null
         }
         Insert: {
           address: string
@@ -55,7 +54,6 @@ export type Database = {
           phone: string
           status?: string
           total?: number
-          user_id?: string | null
         }
         Update: {
           address?: string
@@ -67,7 +65,6 @@ export type Database = {
           phone?: string
           status?: string
           total?: number
-          user_id?: string | null
         }
         Relationships: []
       }
@@ -157,18 +154,6 @@ export type Database = {
           p_items: Json
           p_phone: string
           p_stock: Json
-        }
-        Returns: string
-      }
-      submit_order_for_user: {
-        Args: {
-          p_address: string
-          p_city: string
-          p_customer_name: string
-          p_items: Json
-          p_phone: string
-          p_stock: Json
-          p_user_id: string
         }
         Returns: string
       }

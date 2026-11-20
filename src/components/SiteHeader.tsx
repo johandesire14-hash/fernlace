@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { LogIn, ShoppingBag } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/cart";
 
 export function SiteHeader() {
@@ -15,10 +15,8 @@ export function SiteHeader() {
           <Link to="/catalogue" className={cls} activeProps={active}>Catalogue</Link>
           <Link to="/a-propos" className={`hidden md:inline ${cls}`} activeProps={active}>À propos</Link>
           <Link to="/contact" className={`hidden md:inline ${cls}`} activeProps={active}>Contact</Link>
+          <Link to="/connexion" className={cls} activeProps={active}>Compte</Link>
           <Link to="/admin" className={`hidden md:inline ${cls}`} activeProps={active}>Créateur</Link>
-          <Link to="/espace-client" className="flex items-center gap-2 rounded-full border border-border px-3 py-1.5 font-semibold" activeProps={{ className: "border-primary text-primary" }}>
-            <LogIn className="size-4" /> <span>Connexion</span>
-          </Link>
           <Link to="/panier" className="flex items-center gap-2 rounded-full border border-border px-3 py-1.5 font-semibold" activeProps={{ className: "border-primary text-primary" }} aria-label={`Panier, ${count} article${count > 1 ? "s" : ""}`}>
             <ShoppingBag className="size-4" /> <span>Panier</span>
             <span className="rounded-full bg-primary px-1.5 py-0.5 text-xs text-primary-foreground">{count}</span>

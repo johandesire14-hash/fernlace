@@ -1,151 +1,91 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { FormEvent, useState } from "react";
-import { isMockAuthEnabled, mockAccounts, supabase } from "@/integrations/supabase/client";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/connexion")({
-  head: () => ({
-    meta: [
-      { title: "Connexion — Fernlace" },
-      {
-        name: "description",
-        content: "Connectez-vous à votre espace client Fernlace.",
-      },
-      { property: "og:title", content: "Connexion — Fernlace" },
-      {
-        property: "og:description",
-        content: "Accédez à votre espace client Fernlace.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
-  component: LoginPage,
+  head: () => ({ meta: [
+    { title: "Connexion client — Fernlace" },
+    { name: "description", content: "Connectez-vous ou créez votre compte client Fernlace pour suivre vos commandes." },
+    { property: "og:title", content: "Connexion client — Fernlace" },
+    { property: "og:description", content: "Accédez à votre compte client Fernlace." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
+  component: ConnexionPage,
 });
 
-function LoginPage() {
-  const navigate = useNavigate();
+const input = "w-full rounded-xl border border-input bg-background px-3 py-3 text-sm outline-none focus:border-primary";
+
+function ConnexionPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => { setUser(data.user); setReady(true); });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  if (!ready) return <main className="mx-auto max-w-sm px-4 py-20 text-center text-muted-foreground">Chargement…</main>;
+  if (user) return <SignedIn user={user} />;
+  return <AuthForm />;
+}
+
+function SignedIn({ user }: { user: User }) {
+  return (
+    <main className="mx-auto max-w-sm px-4 py-16 text-center">
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Mon compte</p>
+      <h1 className="mt-2 text-3xl font-bold">Bonjour !</h1>
+      <p className="mt-2 truncate text-sm text-muted-foreground">{user.email}</p>
+      <div className="mt-8 flex flex-col gap-3">
+        <Link to="/catalogue" className="rounded-xl bg-primary py-3 font-display font-bold text-primary-foreground">Continuer mes achats</Link>
+        <button onClick={() => supabase.auth.signOut()} className="rounded-xl border border-border py-3 text-sm font-semibold text-muted-foreground hover:text-foreground">
+          Se déconnecter
+        </button>
+      </div>
+    </main>
+  );
+}
+
+function AuthForm() {
+  const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setErrorMessage("");
-    setIsSubmitting(true);
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    setIsSubmitting(false);
-
-    if (error) {
-      setErrorMessage(
-        error.message.includes("Invalid login credentials")
-          ? "Adresse email ou mot de passe incorrect."
-          : "Impossible de vous connecter pour le moment. Réessayez dans un instant.",
-      );
-      return;
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); setBusy(true); setMsg(null);
+    if (mode === "in") {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setMsg("Email ou mot de passe incorrect.");
+    } else {
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/connexion` } });
+      if (error) setMsg(error.message);
+      else if (!data.session) setMsg("Compte créé ! Confirmez votre email via le lien reçu, puis connectez-vous.");
     }
-
-    const isCreator = data.user?.user_metadata?.account_type === "createur";
-    await navigate({ to: isCreator ? "/admin" : "/espace-client" });
-  }
+    setBusy(false);
+  };
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-9rem)] max-w-6xl items-center justify-center px-4 py-16">
-      <section className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
-        <div className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
-            Espace client
-          </p>
-          <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-foreground">
-            Ravi de vous revoir.
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Retrouvez vos commandes et profitez d’une expérience Fernlace plus fluide.
-          </p>
-        </div>
-
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground" htmlFor="email">
-              Adresse email
-            </label>
-            <input
-              autoComplete="email"
-              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-              id="email"
-              name="email"
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="vous@exemple.fr"
-              required
-              type="email"
-              value={email}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <label className="text-sm font-semibold text-foreground" htmlFor="password">
-                Mot de passe
-              </label>
-              <button
-                className="text-xs font-semibold text-primary hover:underline"
-                onClick={() => setErrorMessage("La récupération du mot de passe sera bientôt disponible.")}
-                type="button"
-              >
-                Mot de passe oublié ?
-              </button>
-            </div>
-            <input
-              autoComplete="current-password"
-              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-              id="password"
-              name="password"
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              type="password"
-              value={password}
-            />
-          </div>
-
-          {errorMessage ? (
-            <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
-              {errorMessage}
-            </p>
-          ) : null}
-
-          <button
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isSubmitting}
-            type="submit"
-          >
-            {isSubmitting ? "Connexion…" : "Se connecter"}
-          </button>
-        </form>
-
-        {isMockAuthEnabled ? (
-          <div className="mt-6 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-4 text-xs text-amber-950 dark:bg-amber-950/20 dark:text-amber-100">
-            <p className="font-bold">Mode test local actif</p>
-            <p className="mt-1 leading-5">Ces comptes sont stockés uniquement dans ce navigateur et ne sont jamais envoyés à Supabase.</p>
-            <div className="mt-3 space-y-2 font-mono">
-              <p><span className="font-sans font-semibold">Client :</span> {mockAccounts.client.email} / {mockAccounts.client.password}</p>
-              <p><span className="font-sans font-semibold">Créateur :</span> {mockAccounts.createur.email} / {mockAccounts.createur.password}</p>
-            </div>
-            <Link className="mt-3 inline-flex font-sans font-semibold underline" to="/admin">Tester l’espace créateur →</Link>
-          </div>
-        ) : null}
-
-        <p className="mt-8 text-center text-sm text-muted-foreground">
-          Pas encore de compte ?{" "}
-          <Link className="font-semibold text-primary hover:underline" to="/contact">
-            Contactez-nous
-          </Link>
-        </p>
-      </section>
+    <main className="mx-auto max-w-sm px-4 py-16">
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Espace client</p>
+      <h1 className="mt-2 text-3xl font-bold">{mode === "in" ? "Connexion" : "Créer un compte"}</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {mode === "in" ? "Connectez-vous pour retrouver votre compte Fernlace." : "Créez votre compte client en quelques secondes."}
+      </p>
+      <form onSubmit={submit} className="mt-6 flex flex-col gap-3">
+        <input className={input} type="email" required maxLength={255} placeholder="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input className={input} type="password" required minLength={6} maxLength={128} placeholder="Mot de passe" autoComplete={mode === "in" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} />
+        <button disabled={busy} className="rounded-xl bg-primary py-3 font-display font-bold text-primary-foreground disabled:opacity-50">
+          {mode === "in" ? "Se connecter" : "Créer mon compte"}
+        </button>
+      </form>
+      {msg && <p className="mt-4 text-sm text-muted-foreground">{msg}</p>}
+      <button onClick={() => { setMode(mode === "in" ? "up" : "in"); setMsg(null); }} className="mt-6 text-sm text-primary">
+        {mode === "in" ? "Pas encore de compte ? Créer un compte" : "Déjà un compte ? Se connecter"}
+      </button>
     </main>
   );
 }
